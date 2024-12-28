@@ -49,7 +49,11 @@ void main()
     specular *= attenuation;
 
     // Combine texture color with lighting
-    finalColor = diffuse + specular; // BLACK 
+    finalColor = diffuse + specular; // WORKS
+
+
+
+	
 	//finalColor = diffuse; // BLACK
 	//finalColor = specular; // BLACK
 

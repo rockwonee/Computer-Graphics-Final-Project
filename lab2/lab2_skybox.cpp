@@ -48,7 +48,7 @@ static float viewPolar = 0.f;
 static float viewDistance = 500.0f;
 
 // Lighting  
-static glm::vec3 lightIntensity(1e4f, 1e4f, 1e4f);;
+static glm::vec3 lightIntensity(1e6f, 1e6f, 1e6f);;
 static glm::vec3 lightPosition(100.0f, 200.0f, 300.0f);
 
 // Shadow mapping
@@ -73,8 +73,8 @@ static float depthFar = 1500.0f;
 GLuint sphereVAO, sphereVBO, sphereEBO;
 GLuint sphereProgramID; // Shader program for the sphere
 glm::vec3 sphereLightPos(0.0f, 15.0f, 60.0f);  // Initial position
-glm::vec3 sphereLightColor(0.6f, 0.2f, 0.8f);  // Purple light color
-float sphereLightIntensity = 10.0f;             // Light intensity
+glm::vec3 sphereLightColor(0.7f, 0.0f, 0.0f);  // Purple light color
+float sphereLightIntensity = 2.0f;             // Light intensity
 
 
 
@@ -188,7 +188,7 @@ void renderSphere(glm::mat4 vp, glm::vec3 position, glm::vec3 color, float inten
 
     glm::mat4 model = glm::mat4(1.0f);
     model = glm::translate(model, position);
-	model = glm::scale(model, glm::vec3(0.8f)); // Uniform scaling
+	model = glm::scale(model, glm::vec3(0.4f)); // Uniform scaling
 
     glm::mat4 mvp = vp * model;
 
@@ -1066,6 +1066,10 @@ GLuint groundTextureID;
 
 			glUniform3fv(glGetUniformLocation(model.programID, "cameraPosition"), 1, glm::value_ptr(cameraPos));
 
+			glUniform3fv(glGetUniformLocation(model.programID, "sphereLightPos"), 1, glm::value_ptr(sphereLightPos));
+			glUniform3fv(glGetUniformLocation(model.programID, "sphereLightColor"), 1, glm::value_ptr(sphereLightColor));
+			glUniform1f(glGetUniformLocation(model.programID, "sphereLightIntensity"), sphereLightIntensity);
+
 			// Set light data
 			glUniform3fv(model.lightPositionID, 1, &lightPosition[0]);
 			glUniform3fv(model.lightIntensityID, 1, &lightIntensity[0]);
@@ -1079,12 +1083,16 @@ GLuint groundTextureID;
 				modelMatrix = glm::scale(modelMatrix, instance.scale);
 				modelMatrix = glm::rotate(modelMatrix, glm::radians(instance.rotation), glm::vec3(0.0f, 0.0f, 1.0f));
 
+				// Calculate the normal matrix for correct lighting
+        		glm::mat3 normalMatrix = glm::transpose(glm::inverse(glm::mat3(modelMatrix)));
+        		glUniformMatrix3fv(glGetUniformLocation(model.programID, "normalMatrix"), 1, GL_FALSE, glm::value_ptr(normalMatrix));
+
 				// Calculate the MVP matrix
 				glm::mat4 mvp = cameraMatrix * modelMatrix;
 
 				// Pass the MVP matrix to the shader
 				glUniformMatrix4fv(model.mvpMatrixID, 1, GL_FALSE, &mvp[0][0]);
-
+				
 				// Draw the model
 				model.drawModel(model.primitiveObjects, model.model);
 			}
@@ -1199,7 +1207,7 @@ int main(void)
 	glGetIntegerv(GL_VERTEX_ARRAY_BINDING, &currentVAO);
 	std::cout << "After setupGroundBuffers, VAO: " << currentVAO << std::endl;
 
-	setupSphere(10.0f); // Example sphere radius
+	setupSphere(10.0f); // sphere radius
 
 	MyModel b;
 	b.initializeModel();
@@ -1228,16 +1236,26 @@ int main(void)
 
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
+		// Update states for animation
+        double currentTime = glfwGetTime();
+        float deltaTime = float(currentTime - lastTime);
+		lastTime = currentTime;
+
 		viewMatrix = glm::lookAt(eye_center, lookat, up);
 		glm::mat4 vp = projectionMatrix * viewMatrix;
 
+		float time = glfwGetTime();
+		float radius = 20.0f;       // Radius of the circular path
+    	sphereLightPos.x = 0.0f + radius * cos(time); 
+    	sphereLightPos.z = 60.0f + radius * sin(time); 
+    	sphereLightPos.y = 15.0f;  
 
 		// Render the skybox first
 		glUseProgram(skybox.programID);
-		glBindVertexArray(skybox.vertexArrayID); // Bind the correct VAO
+		glBindVertexArray(skybox.vertexArrayID); 
 		glActiveTexture(GL_TEXTURE0);
 		glBindTexture(GL_TEXTURE_2D, skybox.textureID);
-		glDepthFunc(GL_LEQUAL); // Ensure skybox is rendered at the farthest depth
+		glDepthFunc(GL_LEQUAL); 
 		glDisable(GL_CULL_FACE); // Disable culling for the skybox
 		skybox.render(vp);
 
@@ -1268,15 +1286,13 @@ int main(void)
 		// Render the building
 		//b.render(vp);
 
-	
-		renderSphere(vp, glm::vec3(0.0f, 15.0f, 60.0f), glm::vec3(0.6f, 0.2f, 0.8f), 0.8f);
+		renderSphere(vp, sphereLightPos, sphereLightColor, sphereLightIntensity);
+		//renderSphere(vp, glm::vec3(0.0f, 15.0f, 60.0f), glm::vec3(0.6f, 0.2f, 0.8f), 0.8f);
 
 		renderInstances(vp, modelInstances, b);
 
 				// FPS tracking 
 		// Count number of frames over a few seconds and take average
-		double currentTime = glfwGetTime();
-		float deltaTime = float(currentTime - lastTime);// added here from above
 		frames++;
 		fTime += deltaTime;
 		if (fTime > 2.0f) {		
@@ -1285,7 +1301,7 @@ int main(void)
 			fTime = 0;
 			
 			std::stringstream stream;
-			stream << std::fixed << std::setprecision(2) << "Lab 4 | Frames per second (FPS): " << fps;
+			stream << std::fixed << std::setprecision(2) << "Final Project | Frames per second (FPS): " << fps;
 			glfwSetWindowTitle(window, stream.str().c_str());
 		}
 

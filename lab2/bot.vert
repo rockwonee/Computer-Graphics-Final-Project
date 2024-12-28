@@ -15,6 +15,9 @@ out vec3 worldPosition;
 
 uniform mat4 MVP;
 uniform mat4 lightSpaceMatrix; // Light-space transformation matrix
+uniform mat4 model;       
+uniform mat3 normalMatrix;
+
 
 uniform mat4 jointMatrices[70];
 uniform bool useSkinning;  
@@ -49,7 +52,7 @@ void main() {
     gl_Position =  MVP * transformPosition;
 
     // World-space geometry 
-    worldPosition = transformPosition.xyz;
-    worldNormal = normalize(transformNormal);
+    worldPosition = (model * vec4(vertexPosition, 1.0)).xyz;
+    worldNormal = vertexNormal;
 
 }
