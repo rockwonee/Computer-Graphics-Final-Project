@@ -8,12 +8,14 @@ out vec3 finalColor;
 uniform vec3 lightPosition;
 uniform vec3 lightIntensity;
 
+
 // Fog 
 const uniform vec3 fogColor = vec3(0.3, 0.3, 0.4);        
 uniform float fogStart = 100.0;       // Start distance for fog
 uniform float fogEnd = 500.0;         // End distance for fog
 uniform float fogDensity = 0.02f;
 uniform vec3 cameraPosition;  // Camera position
+
 
 void main()
 {
@@ -25,6 +27,7 @@ void main()
 
 	// Tone mapping
 	v = v / (1.0 + v);
+
 
 	// Gamma correction
     vec3 litColor = pow(v, vec3(1.0 / 2.2)); 

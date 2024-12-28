@@ -11,12 +11,15 @@ layout(location = 4) in vec4 vertexJointWeights;
 out vec3 worldNormal;
 out vec3 worldPosition;
 
+
 uniform mat4 MVP;
+uniform mat4 lightSpaceMatrix; // Light-space transformation matrix
+
 uniform mat4 jointMatrices[70];
 uniform bool useSkinning;  
 
 void main() {
-     vec3 transformNormal;
+    vec3 transformNormal;
     vec4 transformPosition;
 
     if (useSkinning) {
@@ -47,4 +50,5 @@ void main() {
     // World-space geometry 
     worldPosition = transformPosition.xyz;
     worldNormal = normalize(transformNormal);
+
 }

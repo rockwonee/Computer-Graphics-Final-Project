@@ -26,12 +26,18 @@
 #define BUFFER_OFFSET(i) ((char *)NULL + (i))
 
 static GLFWwindow *window;
+static int windowWidth = 2048;
+static int windowHeight = 1536;							
 static void key_callback(GLFWwindow *window, int key, int scancode, int action, int mode);
 
 // OpenGL camera view parameters
 static glm::vec3 eye_center;
 static glm::vec3 lookat(0, 0, 0);
 static glm::vec3 up(0, 1, 0);
+
+static float FoV = 55.0f;
+static float zNear = 0.1f; 
+static float zFar = 1800.0f;
 
 const float cameraSpeed = 5.0f; // Adjust as needed
 const float rotationSpeed = 0.05f;
@@ -47,14 +53,22 @@ static glm::vec3 lightPosition(100.0f, 200.0f, 300.0f);
 
 // Shadow mapping
 static glm::vec3 lightUp(0, 0, 1);
-static int shadowMapWidth = 0;
-static int shadowMapHeight = 0;
+const int shadowMapWidth = 2048;
+const int shadowMapHeight = 1536;
+//static int shadowMapWidth = 0;
+//static int shadowMapHeight = 0;
 
 // light projections for shadowmap
 glm::mat4 lightProjection, lightView, lightSpaceMatrix;
 
 GLuint depthMapFBO;
 GLuint depthMap;
+
+// TODO: set these parameters
+static float depthFoV = 80.f;
+static float depthNear = 5.0f;
+static float depthFar = 1500.0f;
+
 
 static GLuint LoadTextureTileBox(const char *texture_file_path, GLenum wrapS, GLenum wrapT) {
     int w, h, channels;
@@ -394,6 +408,12 @@ struct MyModel {
 	GLuint lightIntensityID;
 	GLuint programID;
 
+	// Shadow-related members
+    GLuint shadowProgramID;  
+    GLuint shadowMatrixID;    
+	GLuint modelMatrixID;
+	GLuint lightSpaceMatrixID;
+
 	tinygltf::Model model;
 
 
@@ -628,6 +648,7 @@ struct MyModel {
 		// Prepare joint matrices
 		skinObjects = prepareSkinning(model);
 
+
 		programID = LoadShadersFromFile("../lab2/bot.vert", "../lab2/bot.frag");
 		if (programID == 0)
 		{
@@ -639,6 +660,10 @@ struct MyModel {
 		lightPositionID = glGetUniformLocation(programID, "lightPosition");
 		lightIntensityID = glGetUniformLocation(programID, "lightIntensity");
 		jointMatricesID = glGetUniformLocation(programID, "jointMatrices");
+
+		
+		
+		
 
 	}
 
@@ -787,47 +812,8 @@ struct MyModel {
 			drawModelNodes(primitiveObjects, model, model.nodes[scene.nodes[i]]);
 		}
 	}
-/*
-	void render(glm::mat4 cameraMatrix) {
-		glUseProgram(programID);
-		
-		// Set camera
-		glm::mat4 mvp = cameraMatrix;
-		glUniformMatrix4fv(mvpMatrixID, 1, GL_FALSE, &mvp[0][0]);
-
-		// -----------------------------------------------------------------
-		// TODO: Set animation data for linear blend skinning in shader
-		// -----------------------------------------------------------------
-		if (!skinObjects.empty()){
-        for (const auto &skinObject : skinObjects) {
-        if (!skinObject.jointMatrices.empty()) {
-            glUniformMatrix4fv(jointMatricesID,
-                               static_cast<GLsizei>(skinObject.jointMatrices.size()),
-                               GL_FALSE, glm::value_ptr(skinObject.jointMatrices[0]));
-        }
-    }
-	}
-		// -----------------------------------------------------------------
-
-		// Set light data 
-		glUniform3fv(lightPositionID, 1, &lightPosition[0]);
-		glUniform3fv(lightIntensityID, 1, &lightIntensity[0]);
-
-
-		// rotating moddel because its lopsided
-		glm::mat4 modelMatrix = glm::mat4(1.0f);
-modelMatrix = glm::rotate(modelMatrix, glm::radians(90.0f), glm::vec3(1.0f, 0.0f, 0.0f)); // Rotate 90 degrees around X-axis
-modelMatrix = glm::scale(modelMatrix, glm::vec3(20.0f, 20.0f, 20.0f)); 
-		mvp = cameraMatrix * modelMatrix;
-		glUniformMatrix4fv(mvpMatrixID, 1, GL_FALSE, &mvp[0][0]);
-
-		// Draw the GLTF model
-		drawModel(primitiveObjects, model);
-	}
-*/
 
 	
-
 	void cleanup() {
 		glDeleteProgram(programID);
 	}
@@ -980,14 +966,32 @@ GLuint groundTextureID;
 			}
 		}
 
+
+
+
+
+
 int main(void)
-{
+{	
+	std::cout << "Starting program..." << std::endl;
+	// Get framebuffer size
+	//glfwGetFramebufferSize(window, &shadowMapWidth, &shadowMapHeight);
+
+
+	std::cout << "About to initialilse Shadow Map" << std::endl;
+	// Initialise shadow map
+	//initializeShadowMap(shadowMapWidth, shadowMapHeight);
+
+	std::cout << "Finished initialising Shadow Map" << std::endl;
+
 	// Initialise GLFW
 	if (!glfwInit())
 	{
 		std::cerr << "Failed to initialize GLFW." << std::endl;
 		return -1;
 	}
+
+	std::cout << "GLFW initialized successfully." << std::endl;
 
 	glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
 	glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
@@ -1029,19 +1033,10 @@ int main(void)
 	glCullFace(GL_BACK); // OR FRONT
 
 
-	
-	// ------
-
-	// TODO: Create more buildings
-    // ---------------------------
-
-
 // Seed the random number generator
-srand(static_cast<unsigned int>(time(0)));
+//srand(static_cast<unsigned int>(time(0)));
 
-int gridSize = 5;
-float spacing = 60.0f; // Distance between buildings
-
+	
 
     Skybox skybox;
 		// Random scale values
@@ -1073,9 +1068,9 @@ float spacing = 60.0f; // Distance between buildings
     eye_center.z = viewDistance * sin(viewAzimuth);
 
 	glm::mat4 viewMatrix, projectionMatrix;
-    glm::float32 FoV = 55;
-	glm::float32 zNear = 0.1f; 
-	glm::float32 zFar = 1800.0f;
+    //glm::float32 FoV = 55;
+	//glm::float32 zNear = 0.1f; 
+	//glm::float32 zFar = 1800.0f;
 	projectionMatrix = glm::perspective(glm::radians(FoV), 4.0f / 3.0f, zNear, zFar);
 
 	// Time and frame rate tracking
@@ -1086,6 +1081,9 @@ float spacing = 60.0f; // Distance between buildings
 
 	do
 	{
+		// shadow pass
+		//shadowPass(b, windowWidth, windowHeight);
+
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 		viewMatrix = glm::lookAt(eye_center, lookat, up);
