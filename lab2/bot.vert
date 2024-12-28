@@ -1,3 +1,4 @@
+// bot.vert
 #version 330 core
 
 // Input

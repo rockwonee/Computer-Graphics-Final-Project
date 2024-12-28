@@ -72,6 +72,10 @@ static float depthFar = 1500.0f;
 // SPHERE
 GLuint sphereVAO, sphereVBO, sphereEBO;
 GLuint sphereProgramID; // Shader program for the sphere
+glm::vec3 sphereLightPos(0.0f, 15.0f, 60.0f);  // Initial position
+glm::vec3 sphereLightColor(0.6f, 0.2f, 0.8f);  // Purple light color
+float sphereLightIntensity = 10.0f;             // Light intensity
+
 
 
 static GLuint LoadTextureTileBox(const char *texture_file_path, GLenum wrapS, GLenum wrapT) {
@@ -922,10 +926,10 @@ struct MyModel {
 
 };
 
-GLuint groundVAO, groundVBO, groundEBO, groundUVBuffer;
+GLuint groundVAO, groundVBO, groundEBO, groundUVBuffer, NormalBuffer;
 GLuint groundTextureID;
 
-	void setupGroundBuffers(GLuint &VAO, GLuint &VBO, GLuint &EBO, GLuint &UVBuffer) {
+	void setupGroundBuffers(GLuint &VAO, GLuint &VBO, GLuint &EBO, GLuint &UVBuffer, GLuint &NormalBuffer) {
     GLfloat groundVertices[] = {
         -500.0f, 0.0f, -500.0f, 
          500.0f, 0.0f, -500.0f, 
@@ -944,6 +948,13 @@ GLuint groundTextureID;
         20.0f, 20.0f, 
         0.0f, 20.0f
     };
+
+	GLfloat groundNormals[] = {
+		0.0f, 1.0f, 0.0f,
+		0.0f, 1.0f, 0.0f,
+		0.0f, 1.0f, 0.0f,
+		0.0f, 1.0f, 0.0f
+	};
 
 	//GLfloat groundColors[] = {
 	//	1.0f, 1.0f, 1.0f, // White for vertex 0
@@ -974,6 +985,15 @@ GLuint groundTextureID;
     glEnableVertexAttribArray(2); // UV attribute
     glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 0, 0);
 
+	// Generate and bind the VBO for normals
+    glGenBuffers(1, &NormalBuffer);
+    glBindBuffer(GL_ARRAY_BUFFER, NormalBuffer);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(groundNormals), groundNormals, GL_STATIC_DRAW);
+
+    // Set normal attribute pointers
+    glEnableVertexAttribArray(1); // Normal attribute
+    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 0, 0);
+
 	/*glGenBuffers(1, &colorBufferID);
 	glBindBuffer(GL_ARRAY_BUFFER, colorBufferID);
 	glBufferData(GL_ARRAY_BUFFER, sizeof(groundColors), groundColors, GL_STATIC_DRAW);
@@ -996,17 +1016,18 @@ GLuint groundTextureID;
 
 
 
-	void renderGround(glm::mat4 vp, GLuint VAO, GLuint textureID, GLuint programID, GLuint mvpMatrixID, GLuint textureSamplerID) {
+	void renderGround(glm::mat4 vp, glm::mat4 modelMatrix, GLuint VAO, GLuint textureID, GLuint programID, GLuint mvpMatrixID, GLuint textureSamplerID) {
     glUseProgram(programID);
 
     // Model matrix for the ground
-    glm::mat4 modelMatrix = glm::mat4(1.0f);
-    modelMatrix = glm::translate(modelMatrix, glm::vec3(0.0f, 0.0f, 0.0f)); // Slightly below zero
+    //glm::mat4 modelMatrix = glm::mat4(1.0f);
+    //modelMatrix = glm::translate(modelMatrix, glm::vec3(0.0f, 0.0f, 0.0f)); // Slightly below zero
+	glUniformMatrix4fv(glGetUniformLocation(programID, "model"), 1, GL_FALSE, glm::value_ptr(modelMatrix));
 
     // Calculate the MVP matrix
     glm::mat4 mvp = vp * modelMatrix;
     glUniformMatrix4fv(mvpMatrixID, 1, GL_FALSE, &mvp[0][0]);
-
+	
     // Bind the texture
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, textureID);
@@ -1115,6 +1136,10 @@ int main(void)
 	glfwSetInputMode(window, GLFW_STICKY_KEYS, GL_TRUE);
 	glfwSetKeyCallback(window, key_callback);
 
+	// Declare modelMatrix at the top of main()
+	glm::mat4 modelMatrix = glm::mat4(1.0f);
+
+
 	// Load OpenGL functions, gladLoadGL returns the loaded version, 0 on error.
 	int version = gladLoadGL(glfwGetProcAddress);
 	if (version == 0)
@@ -1151,8 +1176,20 @@ int main(void)
 	GLuint groundProgramID = LoadShadersFromFile("../lab2/ground.vert", "../lab2/ground.frag");
 	GLuint groundMVPMatID = glGetUniformLocation(groundProgramID, "MVP");
 	GLuint groundSamplerID = glGetUniformLocation(groundProgramID, "textureSampler");
+
+	// Set the ground modelMatrix (if needed, you can adjust its position later in the loop)
+	modelMatrix = glm::translate(modelMatrix, glm::vec3(0.0f, 0.0f, 0.0f)); 
+
+	// Compute normalMatrix based on modelMatrix
+	
+	
+
+	//glm::mat3 normalMatrix = glm::mat3(1.0f);
+	//glUniformMatrix3fv(glGetUniformLocation(groundProgramID, "normalMatrix"), 1, GL_FALSE, glm::value_ptr(normalMatrix));
+	
+
     groundTextureID = LoadTextureTileBox("../lab2/ground_text6.jpg", GL_REPEAT, GL_REPEAT);
-    setupGroundBuffers(groundVAO, groundVBO, groundEBO, groundUVBuffer);
+    setupGroundBuffers(groundVAO, groundVBO, groundEBO, groundUVBuffer, NormalBuffer);
 	glBindVertexArray(1);             // Bind VAO
 	//glBindBuffer(GL_ARRAY_BUFFER, 0); // Unbind VBO
 	//glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0); // Unbind EBO
@@ -1206,17 +1243,35 @@ int main(void)
 
 		// Render the ground
 		glUseProgram(groundProgramID);
+
+		// Pass sphere light properties
+		glUniform3fv(glGetUniformLocation(groundProgramID, "sphereLightPos"), 1, glm::value_ptr(sphereLightPos));
+		glUniform3fv(glGetUniformLocation(groundProgramID, "sphereLightColor"), 1, glm::value_ptr(sphereLightColor));
+		glUniform1f(glGetUniformLocation(groundProgramID, "sphereLightIntensity"), sphereLightIntensity);
+
+		// Pass view position (camera position)
+		glm::vec3 viewPos = eye_center;
+		glUniform3fv(glGetUniformLocation(groundProgramID, "viewPos"), 1, glm::value_ptr(viewPos));
+
 		glBindVertexArray(groundVAO);
 		glActiveTexture(GL_TEXTURE0);
 		glBindTexture(GL_TEXTURE_2D, groundTextureID);
-		renderGround(vp, groundVAO, groundTextureID, groundProgramID, groundMVPMatID, groundSamplerID);
+		glm::mat4 modelMatrix = glm::mat4(1.0f);
+		modelMatrix = glm::translate(modelMatrix, glm::vec3(0.0f, 0.0f, 0.0f)); // Adjust position if needed
+
+		glm::mat3 normalMatrix = glm::transpose(glm::inverse(glm::mat3(modelMatrix)));
+		glUniformMatrix3fv(glGetUniformLocation(groundProgramID, "normalMatrix"), 1, GL_FALSE, glm::value_ptr(normalMatrix));
+
+		renderGround(vp, modelMatrix, groundVAO, groundTextureID, groundProgramID, groundMVPMatID, groundSamplerID);
+		//renderGround(vp, groundVAO, groundTextureID, groundProgramID, groundMVPMatID, groundSamplerID);
 		
 		// Render the building
 		//b.render(vp);
 
-		renderInstances(vp, modelInstances, b);
-
+	
 		renderSphere(vp, glm::vec3(0.0f, 15.0f, 60.0f), glm::vec3(0.6f, 0.2f, 0.8f), 0.8f);
+
+		renderInstances(vp, modelInstances, b);
 
 				// FPS tracking 
 		// Count number of frames over a few seconds and take average
