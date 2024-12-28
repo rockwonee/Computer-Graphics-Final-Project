@@ -1212,9 +1212,132 @@ GLuint groundTextureID;
 			}
 		}
 
+		struct Sign {
+			glm::vec3 position;  
+			glm::vec3 scale;     
+			float rotation;
+
+			
+			GLuint VAO, VBO, EBO, textureID;
+			GLuint programID;          
+			GLuint mvpMatrixID;
+			GLuint modelMatrixID;
+			GLuint viewMatrixID;        
+			GLuint textureSamplerID; 
+			GLuint projectionMatrixID;
+
+			
+			void initialize(glm::vec3 position, glm::vec3 scale, float rotation) {
+				this->position = position;
+				this->scale = scale;
+				this->rotation = rotation;
+
+				GLfloat vertices[] = {
+					// positions          // UVs
+					-0.5f,  0.5f, 0.0f,  1.0f, 0.0f,  
+					0.5f,  0.5f, 0.0f,   0.0f, 0.0f,  
+					0.5f, -0.5f, 0.0f,   0.0f, 1.0f,  
+					-0.5f, -0.5f, 0.0f,   1.0f, 1.0f  
+        		};
+
+				GLuint indices[] = {
+					0, 1, 2,
+					2, 3, 0
+				};
+
+			// Generate buffers
+			glGenVertexArrays(1, &VAO);
+			glGenBuffers(1, &VBO);
+			glGenBuffers(1, &EBO);
+
+			glBindVertexArray(VAO);
+
+			// Vertex buffer
+			glBindBuffer(GL_ARRAY_BUFFER, VBO);
+			glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
+
+			// Index buffer
+			glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
+			glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices), indices, GL_STATIC_DRAW);
+
+			// Position attribute
+			glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(GLfloat), (void*)0);
+			glEnableVertexAttribArray(0);
+
+			// UV attribute
+			glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(GLfloat), (void*)(3 * sizeof(GLfloat)));
+			glEnableVertexAttribArray(1);
+
+			glBindVertexArray(0);
+
+			textureID = LoadTextureTileBox("../lab2/signtext3.png", GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE);
+
+			programID = LoadShadersFromFile("../lab2/sign.vert", "../lab2/sign.frag");
+			if (programID == 0) {
+            	std::cerr << "Failed to load shaders for the sign." << std::endl;
+            	return;
+        	}
+
+			// Get uniform locations
+			modelMatrixID = glGetUniformLocation(programID, "model");
+			viewMatrixID = glGetUniformLocation(programID, "view");
+			textureSamplerID = glGetUniformLocation(programID, "textureSampler");
+			projectionMatrixID = glGetUniformLocation(programID, "projection");
+			textureSamplerID = glGetUniformLocation(programID, "texture1");	
+			}
 
 
+			void render(const glm::mat4& vpMatrix) {
+				
+				glUseProgram(programID);
 
+				// Model matrix for positioning and scaling
+				glm::mat4 modelMatrix  = glm::mat4(1.0f);
+				modelMatrix  = glm::translate(modelMatrix , position);
+				modelMatrix  = glm::scale(modelMatrix , scale);
+				modelMatrix  = glm::rotate(modelMatrix , glm::radians(rotation), glm::vec3(0.0f, 1.0f, 0.0f));
+
+				glm::mat4 mvp = vpMatrix * modelMatrix;
+
+				glm::mat3 normalMatrix = glm::transpose(glm::inverse(glm::mat3(modelMatrix)));
+
+				// Set uniform values
+				glUniformMatrix4fv(glGetUniformLocation(programID, "MVP"), 1, GL_FALSE, glm::value_ptr(mvp));
+				glUniformMatrix4fv(glGetUniformLocation(programID, "model"), 1, GL_FALSE, glm::value_ptr(modelMatrix));
+				glUniformMatrix3fv(glGetUniformLocation(programID, "normalMatrix"), 1, GL_FALSE, glm::value_ptr(normalMatrix));
+
+				glUniform3fv(glGetUniformLocation(programID, "sphereLightPos"), 1, glm::value_ptr(sphereLightPos));
+				glUniform3fv(glGetUniformLocation(programID, "sphereLightColor"), 1, glm::value_ptr(sphereLightColor));
+				glUniform1f(glGetUniformLocation(programID, "sphereLightIntensity"), sphereLightIntensity);
+
+				glm::vec3 viewPos = glm::vec3(0.0f, 0.0f, 500.0f); // Example camera position
+    			glUniform3fv(glGetUniformLocation(programID, "viewPos"), 1, glm::value_ptr(viewPos));
+
+				// Compute the MVP matrix
+				//glm::mat4 mvp = vpMatrix * model;
+				//glUniformMatrix4fv(mvpMatrixID, 1, GL_FALSE, glm::value_ptr(mvp));
+
+				// Bind texture
+				glActiveTexture(GL_TEXTURE0);
+				glBindTexture(GL_TEXTURE_2D, textureID);
+				glUniform1i(glGetUniformLocation(programID, "texture1"), 0);
+
+
+				// Bind VAO and draw the quad
+				glBindVertexArray(VAO);
+				glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
+				glBindVertexArray(0);
+    }
+			// Cleanup resources
+			void cleanup() {
+				glDeleteBuffers(1, &VBO);
+				glDeleteBuffers(1, &EBO);
+				glDeleteVertexArrays(1, &VAO);
+				glDeleteTextures(1, &textureID);
+				glDeleteProgram(programID);
+    		}	
+
+		};
 
 
 int main(void)
@@ -1307,6 +1430,10 @@ int main(void)
 	// RAIN
 	RainSystem rainSystem;
 
+
+	// SIGN
+	Sign mySign;
+
 	//glm::mat3 normalMatrix = glm::mat3(1.0f);
 	//glUniformMatrix3fv(glGetUniformLocation(groundProgramID, "normalMatrix"), 1, GL_FALSE, glm::value_ptr(normalMatrix));
 	
@@ -1328,6 +1455,9 @@ int main(void)
 	b.initializeModel();
 
 	rainSystem.initialize();  // RAIN
+	// 0.0f, 0.0f, 5.0f
+	mySign.initialize(glm::vec3(25.0f, 20.0f, 105.0f), glm::vec3(40.0f, 20.0f, 20.0f), 45.0f);
+
 
 	// Camera setup
     eye_center.y = viewDistance * cos(viewPolar);
@@ -1414,6 +1544,8 @@ int main(void)
 
 		rainSystem.render(vp);
 
+		mySign.render(vp);
+
 				// FPS tracking 
 		// Count number of frames over a few seconds and take average
 		frames++;
@@ -1442,6 +1574,8 @@ int main(void)
 	b.cleanup();
 
 	rainSystem.cleanup();
+
+	mySign.cleanup();
 	
 	// Close OpenGL window and terminate GLFW
 	glfwTerminate();
