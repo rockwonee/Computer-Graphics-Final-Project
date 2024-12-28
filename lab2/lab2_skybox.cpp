@@ -201,7 +201,121 @@ void renderSphere(glm::mat4 vp, glm::vec3 position, glm::vec3 color, float inten
     glBindVertexArray(0);
 }
 
+// RAIN 
+struct RainParticle {
+    glm::vec3 position;
+    glm::vec3 velocity;
+    float life;
+	float length;
+};
 
+class RainSystem {
+private:
+    std::vector<RainParticle> particles;
+    GLuint VAO, VBO;
+	GLuint programID;
+    GLuint vpMatrixID;
+    const int MAX_PARTICLES = 10000;
+    float spawnHeight = 100.0f;
+    float spawnArea = 200.0f;  
+	float minSpeed = 20.0f;          
+    float maxSpeed = 30.0f;       
+    
+public:
+	void initialize() {
+        programID = LoadShadersFromFile("../lab2/rain.vert", "../lab2/rain.frag");
+        if (programID == 0) {
+            std::cerr << "Failed to load rain shaders." << std::endl;
+            return;
+        }
+
+		vpMatrixID = glGetUniformLocation(programID, "VP");
+
+		for(int i = 0; i < MAX_PARTICLES; i++) {
+				RainParticle particle;
+				resetParticle(particle, ((rand() % 1000) / 1000.0f) * spawnHeight);
+            	particles.push_back(particle);
+			}
+        
+        glGenVertexArrays(1, &VAO);
+        glGenBuffers(1, &VBO);
+
+		std::vector<glm::vec3> vertices(MAX_PARTICLES * 2);
+        
+        //std::vector<glm::vec3> vertices;
+        //for(int i = 0; i < MAX_PARTICLES; i++) {
+        //    vertices.push_back(particles[i].position);
+        //}
+        
+        glBindVertexArray(VAO);
+        glBindBuffer(GL_ARRAY_BUFFER, VBO);
+        glBufferData(GL_ARRAY_BUFFER, vertices.size() * sizeof(glm::vec3), nullptr, GL_DYNAMIC_DRAW);
+        
+        glEnableVertexAttribArray(0);
+        glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(glm::vec3), (void*)0);
+    }
+    
+    void resetParticle(RainParticle& particle, float startHeight) {
+        float x = ((rand() % 1000) / 1000.0f * 2.0f - 1.0f) * spawnArea;
+        float z = ((rand() % 1000) / 1000.0f * 2.0f - 1.0f) * spawnArea;
+        particle.position = glm::vec3(x, startHeight, z);
+        
+        // Randomize velocity
+        float speed = minSpeed + ((rand() % 1000) / 1000.0f) * (maxSpeed - minSpeed);
+        particle.velocity = glm::vec3(
+            ((rand() % 100) / 100.0f - 0.5f) * 1.0f,  // Slight x variation
+            -speed,                                    // Downward speed
+            ((rand() % 100) / 100.0f - 0.5f) * 1.0f   // Slight z variation
+        );
+        
+        // Randomize drop length
+        particle.length = 0.5f + ((rand() % 1000) / 1000.0f) * 1.0f; // Length between 0.5 and 1.5 units
+        particle.life = 1.0f;
+    }
+    
+    void update(float deltaTime) {
+        std::vector<glm::vec3> vertices;
+        vertices.reserve(MAX_PARTICLES * 2); // Reserve space for start and end points
+        
+        for(auto& particle : particles) {
+            particle.position += particle.velocity * deltaTime;
+            
+            if(particle.position.y < 0.0f) {
+                resetParticle(particle, spawnHeight);
+            }
+            
+            // Calculate end point of raindrop using velocity direction and length
+            glm::vec3 dropDirection = glm::normalize(particle.velocity);
+            glm::vec3 endPoint = particle.position + (dropDirection * particle.length);
+            
+            // Add both vertices for the line
+            vertices.push_back(particle.position);
+            vertices.push_back(endPoint);
+        }
+        
+        glBindBuffer(GL_ARRAY_BUFFER, VBO);
+        glBufferSubData(GL_ARRAY_BUFFER, 0, vertices.size() * sizeof(glm::vec3), vertices.data());
+    }
+    
+    void render(const glm::mat4& vp) {
+        glUseProgram(programID);
+        glUniformMatrix4fv(vpMatrixID, 1, GL_FALSE, glm::value_ptr(vp));
+        
+        glEnable(GL_BLEND);
+        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+        
+        glBindVertexArray(VAO);
+        glDrawArrays(GL_LINES, 0, MAX_PARTICLES * 2);  // Draw lines instead of points
+        
+        glDisable(GL_BLEND);
+    }
+
+	void cleanup() {
+        glDeleteProgram(programID);
+        glDeleteBuffers(1, &VBO);
+        glDeleteVertexArrays(1, &VAO);
+    }
+};
 
 struct Skybox {
 	glm::vec3 position;		// Position of the box 
@@ -1190,7 +1304,8 @@ int main(void)
 
 	// Compute normalMatrix based on modelMatrix
 	
-	
+	// RAIN
+	RainSystem rainSystem;
 
 	//glm::mat3 normalMatrix = glm::mat3(1.0f);
 	//glUniformMatrix3fv(glGetUniformLocation(groundProgramID, "normalMatrix"), 1, GL_FALSE, glm::value_ptr(normalMatrix));
@@ -1211,6 +1326,8 @@ int main(void)
 
 	MyModel b;
 	b.initializeModel();
+
+	rainSystem.initialize();  // RAIN
 
 	// Camera setup
     eye_center.y = viewDistance * cos(viewPolar);
@@ -1240,6 +1357,10 @@ int main(void)
         double currentTime = glfwGetTime();
         float deltaTime = float(currentTime - lastTime);
 		lastTime = currentTime;
+
+		
+
+		rainSystem.update(deltaTime); // RAIN updating
 
 		viewMatrix = glm::lookAt(eye_center, lookat, up);
 		glm::mat4 vp = projectionMatrix * viewMatrix;
@@ -1291,6 +1412,8 @@ int main(void)
 
 		renderInstances(vp, modelInstances, b);
 
+		rainSystem.render(vp);
+
 				// FPS tracking 
 		// Count number of frames over a few seconds and take average
 		frames++;
@@ -1317,6 +1440,8 @@ int main(void)
 	skybox.cleanup();
 
 	b.cleanup();
+
+	rainSystem.cleanup();
 	
 	// Close OpenGL window and terminate GLFW
 	glfwTerminate();
