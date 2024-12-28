@@ -69,6 +69,10 @@ static float depthFoV = 80.f;
 static float depthNear = 5.0f;
 static float depthFar = 1500.0f;
 
+// SPHERE
+GLuint sphereVAO, sphereVBO, sphereEBO;
+GLuint sphereProgramID; // Shader program for the sphere
+
 
 static GLuint LoadTextureTileBox(const char *texture_file_path, GLenum wrapS, GLenum wrapT) {
     int w, h, channels;
@@ -96,6 +100,104 @@ static GLuint LoadTextureTileBox(const char *texture_file_path, GLenum wrapS, GL
 
     return texture;
 }
+
+// Generating my sphere
+void generateSphere(float radius, unsigned int latitudeSegments, unsigned int longitudeSegments, 
+                    std::vector<float>& vertices, std::vector<unsigned int>& indices) {
+    for (unsigned int lat = 0; lat <= latitudeSegments; ++lat) {
+        float theta = lat * M_PI / latitudeSegments; // Angle from pole to pole
+        float sinTheta = sin(theta);
+        float cosTheta = cos(theta);
+
+        for (unsigned int lon = 0; lon <= longitudeSegments; ++lon) {
+            float phi = lon * 2.0f * M_PI / longitudeSegments; // Angle around the sphere
+            float sinPhi = sin(phi);
+            float cosPhi = cos(phi);
+
+            // Compute vertex position
+            float x = radius * cosPhi * sinTheta;
+            float y = radius * cosTheta;
+            float z = radius * sinPhi * sinTheta;
+
+            // Add vertex to the list
+            vertices.push_back(x);
+            vertices.push_back(y);
+            vertices.push_back(z);
+
+            // Texture coordinates (optional, use for lighting or texture mapping)
+            vertices.push_back((float)lon / longitudeSegments);
+            vertices.push_back((float)lat / latitudeSegments);
+        }
+    }
+
+    // Compute indices for triangle strips
+    for (unsigned int lat = 0; lat < latitudeSegments; ++lat) {
+        for (unsigned int lon = 0; lon < longitudeSegments; ++lon) {
+            unsigned int first = (lat * (longitudeSegments + 1)) + lon;
+            unsigned int second = first + longitudeSegments + 1;
+
+            indices.push_back(first);
+            indices.push_back(second);
+            indices.push_back(first + 1);
+
+            indices.push_back(second);
+            indices.push_back(second + 1);
+            indices.push_back(first + 1);
+        }
+    }
+}
+
+void setupSphere(float radius) {
+    std::vector<float> vertices;
+    std::vector<unsigned int> indices;
+
+    generateSphere(radius, 50, 50, vertices, indices); // 50 segments for latitude and longitude
+
+    glGenVertexArrays(1, &sphereVAO);
+    glGenBuffers(1, &sphereVBO);
+    glGenBuffers(1, &sphereEBO);
+
+    glBindVertexArray(sphereVAO);
+
+    // Vertex buffer
+    glBindBuffer(GL_ARRAY_BUFFER, sphereVBO);
+    glBufferData(GL_ARRAY_BUFFER, vertices.size() * sizeof(float), vertices.data(), GL_STATIC_DRAW);
+
+    // Index buffer
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, sphereEBO);
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER, indices.size() * sizeof(unsigned int), indices.data(), GL_STATIC_DRAW);
+
+    // Vertex attributes
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)0); // Position
+    glEnableVertexAttribArray(0);
+    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)(3 * sizeof(float))); // Texture coord
+    glEnableVertexAttribArray(1);
+
+    glBindVertexArray(0);
+
+    // Load shaders for the sphere
+    sphereProgramID = LoadShadersFromFile("../lab2/sphere.vert", "../lab2/sphere.frag");
+}
+
+void renderSphere(glm::mat4 vp, glm::vec3 position, glm::vec3 color, float intensity) {
+    glUseProgram(sphereProgramID);
+
+    glm::mat4 model = glm::mat4(1.0f);
+    model = glm::translate(model, position);
+	model = glm::scale(model, glm::vec3(0.8f)); // Uniform scaling
+
+    glm::mat4 mvp = vp * model;
+
+    glUniformMatrix4fv(glGetUniformLocation(sphereProgramID, "MVP"), 1, GL_FALSE, &mvp[0][0]);
+    glUniform3fv(glGetUniformLocation(sphereProgramID, "lightColor"), 1, glm::value_ptr(color));
+    glUniform1f(glGetUniformLocation(sphereProgramID, "intensity"), intensity);
+
+    glBindVertexArray(sphereVAO);
+    glDrawElements(GL_TRIANGLES, 50 * 50 * 6, GL_UNSIGNED_INT, 0); // Adjust based on segments
+    glBindVertexArray(0);
+}
+
+
 
 struct Skybox {
 	glm::vec3 position;		// Position of the box 
@@ -923,6 +1025,7 @@ GLuint groundTextureID;
 	};
 
 	std::vector<ModelInstance> modelInstances = {
+					// POSITION						// SCALE
 		{glm::vec3(0.0f, 0.0f, 5.0f), glm::vec3(20.0f, 20.0f, 20.0f), 0.0f},  // Original model
 		{glm::vec3(40.0f, 20.0f, 18.0f), glm::vec3(15.0f, 15.0f, 15.0f), 50.0f}, // R1
 		{glm::vec3(65.0f, 70.0f, 5.0f), glm::vec3(25.0f, 25.0f, 25.0f), 90.0f},  // R2
@@ -1059,6 +1162,8 @@ int main(void)
 	glGetIntegerv(GL_VERTEX_ARRAY_BINDING, &currentVAO);
 	std::cout << "After setupGroundBuffers, VAO: " << currentVAO << std::endl;
 
+	setupSphere(10.0f); // Example sphere radius
+
 	MyModel b;
 	b.initializeModel();
 
@@ -1110,6 +1215,9 @@ int main(void)
 		//b.render(vp);
 
 		renderInstances(vp, modelInstances, b);
+
+		renderSphere(vp, glm::vec3(0.0f, 15.0f, 60.0f), glm::vec3(0.6f, 0.2f, 0.8f), 0.8f);
+
 				// FPS tracking 
 		// Count number of frames over a few seconds and take average
 		double currentTime = glfwGetTime();
