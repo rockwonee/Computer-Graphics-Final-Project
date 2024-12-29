@@ -5,7 +5,7 @@ in vec2 uv;
 in vec3 worldNormal;
 in vec3 worldPosition;
 
-uniform sampler2D textureSampler;
+uniform sampler2D texture1;
 
 // Sphere light uniforms
 uniform vec3 sphereLightPos;
@@ -18,7 +18,7 @@ out vec3 finalColor;
 
 void main() {
 
-    vec3 textureColor = texture(textureSampler, uv).rgb;
+    vec3 textureColor = texture(texture1, uv).rgb;
     vec3 norm = normalize(worldNormal);
 
     vec3 lightDir = normalize(sphereLightPos - worldPosition);
@@ -36,5 +36,13 @@ void main() {
     diffuse *= attenuation;
     specular *= attenuation;
 
-    finalColor = diffuse + specular;
+    finalColor = textureColor * (diffuse + specular); // Glow works, but no texture
+    finalColor = finalColor / (1.0 + finalColor); // Tone mapping
+    finalColor = pow(finalColor, vec3(1.0 / 1.6)); // Gamma correction
+
+
+    //finalColor = textureColor;  
+    //finalColor = vec3(1.0, 0.0, 0.0);     // red
+    //finalColor = worldNormal * 0.5 + 0.5; // uniform light grey
+    //finalColor = norm * 0.5 + 0.5;        // light purple
 }
