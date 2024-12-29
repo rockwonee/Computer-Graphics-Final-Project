@@ -11,11 +11,13 @@ layout(location = 4) in vec4 vertexJointWeights;
 // Output data, to be interpolated for each fragment
 out vec3 worldNormal;
 out vec3 worldPosition;
+out vec2 uv;
 
 
 uniform mat4 MVP;
 uniform mat4 lightSpaceMatrix; // Light-space transformation matrix
 uniform mat4 model;       
+uniform mat4 modelMatrix;
 uniform mat3 normalMatrix;
 
 
@@ -52,7 +54,11 @@ void main() {
     gl_Position =  MVP * transformPosition;
 
     // World-space geometry 
-    worldPosition = (model * vec4(vertexPosition, 1.0)).xyz;
-    worldNormal = vertexNormal;
+    //worldPosition = (model * vec4(vertexPosition, 1.0)).xyz; // OLD AND WORKING
+    //worldNormal = vertexNormal;   // OLD AND WORKING
+    worldPosition = vec3(modelMatrix * vec4(vertexPosition, 1.0));
+    worldNormal = normalMatrix * vertexNormal; // ADDED NEW FOR BUILDING GLOW 
+
+    uv = vertexUV;
 
 }

@@ -2,7 +2,7 @@
 
 in vec3 worldPosition;
 in vec3 worldNormal; 
-
+in vec2 uv;
 
 
 uniform vec3 lightPosition;
@@ -10,10 +10,10 @@ uniform vec3 lightIntensity;
 
 
 // Fog 
-const uniform vec3 fogColor = vec3(0.3, 0.3, 0.4);        
-uniform float fogStart = 100.0;       // Start distance for fog
-uniform float fogEnd = 500.0;         // End distance for fog
-uniform float fogDensity = 0.02f;
+const uniform vec3 fogColor = vec3(0.3, 0.3, 0.3);        
+uniform float fogStart = 200.0;       // Start distance for fog
+uniform float fogEnd = 300.0;         // End distance for fog
+uniform float fogDensity = 0.004f;
 uniform vec3 cameraPosition;  // Camera position
 
 // Sphere light uniforms
@@ -42,6 +42,7 @@ void main()
 	// Gamma correction
     vec3 litColor = pow(v, vec3(1.0 / 2.2)); 
     */
+
     // GLOW FROM SPHERE
     vec3 norm = normalize(worldNormal);
     vec3 lightDir = normalize(sphereLightPos - worldPosition);
@@ -69,19 +70,19 @@ void main()
 
     //finalColor = ambient + diffuse + specular;
     finalColor = finalColor / (1.0 + finalColor); // Tone mapping
-    finalColor = pow(finalColor, vec3(1.0 / 1.2)); // Gamma correction
+    finalColor = pow(finalColor, vec3(1.0 / 0.5)); // Gamma correction
 
     vec3 glowCol = diffuse + specular;
 
     //finalColor = litColor; // WORKING 
 
     // Fog calculation
-    //float distance = length(worldPosition - cameraPosition); // Distance to the camera
-    //float fogFactor = clamp((distance - fogStart) / (fogEnd - fogStart), 0.0, 1.0);
+    float distance1 = length(worldPosition - cameraPosition); // Distance to the camera
+    //float fogFactor = clamp((distance1 - fogStart) / (fogEnd - fogStart), 0.0, 1.0);
 
-    float fogFactor = exp(-distance * fogDensity);
+    float fogFactor = exp(-distance1 * fogDensity);
     fogFactor = clamp(fogFactor, 0.0, 1.0);
-
+    finalColor = mix(fogColor, finalColor, fogFactor);  // TEST FOR FOG
 
     // Blend the lit color with the fog color
     //finalColor = mix(fogColor, glowCol, fogFactor);

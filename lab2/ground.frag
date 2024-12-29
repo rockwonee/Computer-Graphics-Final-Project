@@ -10,6 +10,15 @@ in vec2 uv;
 
 uniform sampler2D textureSampler;
 
+
+// FOG
+const uniform vec3 fogColor = vec3(0.3, 0.3, 0.3);        
+uniform float fogStart = 200.0;       // Start distance for fog
+uniform float fogEnd = 300.0;         // End distance for fog
+uniform float fogDensity = 0.004f;
+uniform vec3 cameraPosition;  // Camera position
+
+
 // Sphere light uniforms
 uniform vec3 sphereLightPos;      
 uniform vec3 sphereLightColor;    
@@ -51,6 +60,12 @@ void main()
     // Combine texture color with lighting
     finalColor = diffuse + specular; // WORKS
 
+
+	// FOG
+	float distance1 = length(worldPosition - cameraPosition); // Distance to the camera
+	float fogFactor = exp(-distance1 * fogDensity);
+    fogFactor = clamp(fogFactor, 0.0, 1.0);
+    finalColor = mix(fogColor, finalColor, fogFactor);  // TEST FOR FOG
 
 
 	

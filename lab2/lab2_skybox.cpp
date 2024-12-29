@@ -29,9 +29,11 @@ static GLFWwindow *window;
 static int windowWidth = 2048;
 static int windowHeight = 1536;							
 static void key_callback(GLFWwindow *window, int key, int scancode, int action, int mode);
+void processInput();
 
 // OpenGL camera view parameters
-static glm::vec3 eye_center;
+//static glm::vec3 eye_center; // WAS WORKING
+static glm::vec3 eye_center(80.0f, 80.0f, 20.0f);
 static glm::vec3 lookat(0, 0, 0);
 static glm::vec3 up(0, 1, 0);
 
@@ -39,8 +41,8 @@ static float FoV = 55.0f;
 static float zNear = 0.1f; 
 static float zFar = 1800.0f;
 
-const float cameraSpeed = 5.0f; // Adjust as needed
-const float rotationSpeed = 0.05f;
+const float cameraSpeed = 0.1f; // Adjust as needed
+const float rotationSpeed = 0.005f;
 
 // View control 
 static float viewAzimuth = 0.f;
@@ -1045,10 +1047,10 @@ GLuint groundTextureID;
 
 	void setupGroundBuffers(GLuint &VAO, GLuint &VBO, GLuint &EBO, GLuint &UVBuffer, GLuint &NormalBuffer) {
     GLfloat groundVertices[] = {
-        -500.0f, 0.0f, -500.0f, 
-         500.0f, 0.0f, -500.0f, 
-         500.0f, 0.0f,  500.0f, 
-        -500.0f, 0.0f,  500.0f
+        -300.0f, 0.0f, -300.0f, 
+         300.0f, 0.0f, -300.0f, 	// were 500
+         300.0f, 0.0f,  300.0f, 
+        -300.0f, 0.0f,  300.0f
     };
 
     GLuint groundIndices[] = {
@@ -1130,9 +1132,10 @@ GLuint groundTextureID;
 
 
 
-	void renderGround(glm::mat4 vp, glm::mat4 modelMatrix, GLuint VAO, GLuint textureID, GLuint programID, GLuint mvpMatrixID, GLuint textureSamplerID) {
+	void renderGround(glm::mat4 vp, glm::mat4 modelMatrix, GLuint VAO, GLuint textureID, GLuint programID, GLuint mvpMatrixID, GLuint textureSamplerID, glm::vec3 cameraPosition) {
     glUseProgram(programID);
 
+	glUniform3fv(glGetUniformLocation(programID, "cameraPosition"), 1, glm::value_ptr(cameraPosition));
     // Model matrix for the ground
     //glm::mat4 modelMatrix = glm::mat4(1.0f);
     //modelMatrix = glm::translate(modelMatrix, glm::vec3(0.0f, 0.0f, 0.0f)); // Slightly below zero
@@ -1167,20 +1170,35 @@ GLuint groundTextureID;
 		{glm::vec3(-45.0f, 25.0f, 60.0f), glm::vec3(18.0f, 18.0f, 18.0f), 290.0f}, // L1
 		{glm::vec3(-55.0f, 80.0f, 5.0f), glm::vec3(22.0f, 22.0f, 22.0f), 250.0f},  // L2
 		{glm::vec3(-20.0f, 110.0f, 80.0f), glm::vec3(15.0f, 15.0f, 15.0f), 210.0f}, // L3
+
+		// Far buildings
+		{glm::vec3(150.0f, 100.0f, 20.0f), glm::vec3(30.0f, 30.0f, 30.0f), 45.0f},
+		{glm::vec3(-200.0f, 150.0f, 5.0f), glm::vec3(25.0f, 25.0f, 25.0f), 30.0f},
+		{glm::vec3(180.0f, 60.0f, 5.0f), glm::vec3(20.0f, 20.0f, 20.0f), 60.0f},
+		{glm::vec3(-250.0f, 0.0f, 30.0f), glm::vec3(35.0f, 35.0f, 35.0f), 75.0f},
+		{glm::vec3(25.0f, 180.0f, 5.0f), glm::vec3(28.0f, 28.0f, 28.0f), 90.0f},
+		{glm::vec3(70.0f, 140.0f, 5.0f), glm::vec3(22.0f, 22.0f, 22.0f), 200.0f},
+		{glm::vec3(-50.0f, 130.0f, 15.0f), glm::vec3(36.0f, 36.0f, 36.0f), 230.0f},
+		{glm::vec3(-25.0f, 190.0f, 10.0f), glm::vec3(23.0f, 23.0f, 23.0f), 180.0f},
+		{glm::vec3(-80.0f, 50.0f, 5.0f), glm::vec3(32.0f, 32.0f, 32.0f), 310.0f},
+		{glm::vec3(-70.0f, 90.0f, 10.0f), glm::vec3(23.0f, 23.0f, 23.0f), 180.0f},
+		{glm::vec3(-50.0f, 130.0f, 15.0f), glm::vec3(36.0f, 36.0f, 36.0f), 230.0f},
+		{glm::vec3(-25.0f, -30.0f, 5.0f), glm::vec3(23.0f, 23.0f, 23.0f), 180.0f},
+
 	};
 
 
 	void renderInstances(glm::mat4 cameraMatrix, const std::vector<ModelInstance>& instances, MyModel& model) {
 			glUseProgram(model.programID);
 
-			glm::vec3 cameraPos = -glm::vec3(
-			cameraMatrix[3][0] * cameraMatrix[0][0] + cameraMatrix[3][1] * cameraMatrix[0][1] + cameraMatrix[3][2] * cameraMatrix[0][2],
-			cameraMatrix[3][0] * cameraMatrix[1][0] + cameraMatrix[3][1] * cameraMatrix[1][1] + cameraMatrix[3][2] * cameraMatrix[1][2],
-			cameraMatrix[3][0] * cameraMatrix[2][0] + cameraMatrix[3][1] * cameraMatrix[2][1] + cameraMatrix[3][2] * cameraMatrix[2][2]
-		);
-
+			//glm::vec3 cameraPos = -glm::vec3(
+			//cameraMatrix[3][0] * cameraMatrix[0][0] + cameraMatrix[3][1] * cameraMatrix[0][1] + cameraMatrix[3][2] * cameraMatrix[0][2],
+			//cameraMatrix[3][0] * cameraMatrix[1][0] + cameraMatrix[3][1] * cameraMatrix[1][1] + cameraMatrix[3][2] * cameraMatrix[1][2],
+			//cameraMatrix[3][0] * cameraMatrix[2][0] + cameraMatrix[3][1] * cameraMatrix[2][1] + cameraMatrix[3][2] * cameraMatrix[2][2]
+		//);
+			glm::vec3 cameraPos = eye_center;
 			glUniform3fv(glGetUniformLocation(model.programID, "cameraPosition"), 1, glm::value_ptr(cameraPos));
-
+			glUniform3fv(glGetUniformLocation(model.programID, "viewPos"), 1, glm::value_ptr(cameraPos)); // ADDED NOW
 			glUniform3fv(glGetUniformLocation(model.programID, "sphereLightPos"), 1, glm::value_ptr(sphereLightPos));
 			glUniform3fv(glGetUniformLocation(model.programID, "sphereLightColor"), 1, glm::value_ptr(sphereLightColor));
 			glUniform1f(glGetUniformLocation(model.programID, "sphereLightIntensity"), sphereLightIntensity);
@@ -1197,6 +1215,9 @@ GLuint groundTextureID;
 				modelMatrix = glm::translate(modelMatrix, instance.position);
 				modelMatrix = glm::scale(modelMatrix, instance.scale);
 				modelMatrix = glm::rotate(modelMatrix, glm::radians(instance.rotation), glm::vec3(0.0f, 0.0f, 1.0f));
+
+				
+				glUniformMatrix4fv(glGetUniformLocation(model.programID, "modelMatrix"), 1, GL_FALSE, glm::value_ptr(modelMatrix));
 
 				// Calculate the normal matrix for correct lighting
         		glm::mat3 normalMatrix = glm::transpose(glm::inverse(glm::mat3(modelMatrix)));
@@ -1277,7 +1298,7 @@ GLuint groundTextureID;
 
 			glBindVertexArray(0);
 
-			textureID = LoadTextureTileBox("../lab2/signtext8.png", GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE);
+			textureID = LoadTextureTileBox("../lab2/signtext9.png", GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE);
 
 			programID = LoadShadersFromFile("../lab2/sign.vert", "../lab2/sign.frag");
 			if (programID == 0) {
@@ -1294,13 +1315,16 @@ GLuint groundTextureID;
 			}
 
 
-			void render(const glm::mat4& vpMatrix) {
+			void render(const glm::mat4& vpMatrix, float time) {
 				
 				glUseProgram(programID);
 
+				// oscillation for sign to "bob" up and down
+				float oscillation = sin(time * 3.5f) * 0.3f;
+
 				// Model matrix for positioning and scaling
 				glm::mat4 modelMatrix  = glm::mat4(1.0f);
-				modelMatrix  = glm::translate(modelMatrix , position);
+				modelMatrix  = glm::translate(modelMatrix , position + glm::vec3(0.0f, oscillation, 0.0f));
 				modelMatrix  = glm::scale(modelMatrix , scale);
 				modelMatrix  = glm::rotate(modelMatrix , glm::radians(rotation), glm::vec3(0.0f, 1.0f, 0.0f));
 
@@ -1338,16 +1362,12 @@ GLuint groundTextureID;
 
 int main(void)
 {	
-	std::cout << "Starting program..." << std::endl;
-	// Get framebuffer size
-	//glfwGetFramebufferSize(window, &shadowMapWidth, &shadowMapHeight);
+	eye_center = glm::vec3(-20.0f, 10.0f, 20.0f);
+	lookat = glm::vec3(10.0f, 12.0f, 80.0f);
 
-
-	std::cout << "About to initialilse Shadow Map" << std::endl;
-	// Initialise shadow map
-	//initializeShadowMap(shadowMapWidth, shadowMapHeight);
-
-	std::cout << "Finished initialising Shadow Map" << std::endl;
+	glm::vec3 direction = glm::normalize(lookat - eye_center);
+    viewPolar = glm::asin(direction.y); // Polar angle from the vertical axis
+    viewAzimuth = glm::atan(direction.z, direction.x); 
 
 	// Initialise GLFW
 	if (!glfwInit())
@@ -1456,9 +1476,9 @@ int main(void)
 
 
 	// Camera setup
-    eye_center.y = viewDistance * cos(viewPolar);
-    eye_center.x = viewDistance * cos(viewAzimuth);
-    eye_center.z = viewDistance * sin(viewAzimuth);
+    //eye_center.y = viewDistance * cos(viewPolar);
+    //eye_center.x = viewDistance * cos(viewAzimuth);
+    //eye_center.z = viewDistance * sin(viewAzimuth);
 
 	glm::mat4 viewMatrix, projectionMatrix;
     //glm::float32 FoV = 55;
@@ -1478,6 +1498,8 @@ int main(void)
 		//shadowPass(b, windowWidth, windowHeight);
 
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+		processInput();
 
 		// Update states for animation
         double currentTime = glfwGetTime();
@@ -1527,7 +1549,7 @@ int main(void)
 		glm::mat3 normalMatrix = glm::transpose(glm::inverse(glm::mat3(modelMatrix)));
 		glUniformMatrix3fv(glGetUniformLocation(groundProgramID, "normalMatrix"), 1, GL_FALSE, glm::value_ptr(normalMatrix));
 
-		renderGround(vp, modelMatrix, groundVAO, groundTextureID, groundProgramID, groundMVPMatID, groundSamplerID);
+		renderGround(vp, modelMatrix, groundVAO, groundTextureID, groundProgramID, groundMVPMatID, groundSamplerID, eye_center);
 		//renderGround(vp, groundVAO, groundTextureID, groundProgramID, groundMVPMatID, groundSamplerID);
 		
 		// Render the building
@@ -1547,7 +1569,7 @@ int main(void)
 		glUniform3fv(glGetUniformLocation(mySign.programID, "sphereLightColor"), 1, glm::value_ptr(sphereLightColor));
 		glUniform1f(glGetUniformLocation(mySign.programID, "sphereLightIntensity"), sphereLightIntensity);
 		glUniform3fv(glGetUniformLocation(mySign.programID, "viewPos"), 1, glm::value_ptr(viewPos));
-		mySign.render(vp);
+		mySign.render(vp, glfwGetTime());
 
 				// FPS tracking 
 		// Count number of frames over a few seconds and take average
@@ -1586,102 +1608,110 @@ int main(void)
 	return 0;
 }
 
-// Is called whenever a key is pressed/released via GLFW
+bool keys[1024] = { false };
+
 void key_callback(GLFWwindow *window, int key, int scancode, int action, int mode)
 {
 
-	static glm::vec3 cameraOffset(0.0f, 0.0f, 0.0f); // Offset for WASD movement
+	//static glm::vec3 cameraOffset(0.0f, 0.0f, 0.0f);
 
-	if (key == GLFW_KEY_R && action == GLFW_PRESS)
-	{
-		viewAzimuth = 0.f;
-		viewPolar = 0.f;
-		cameraOffset = glm::vec3(0.0f, 0.0f, 0.0f); // Reset offset
-		eye_center = glm::vec3(0, 0, 500.0f);
+    if (key >= 0 && key < 1024)
+    {
+        if (action == GLFW_PRESS)
+            keys[key] = true;
+        else if (action == GLFW_PRESS || action == GLFW_RELEASE)
+            keys[key] = false;
+    }
 
-		std::cout << "Reset." << std::endl;
-	}
+  
+    if (key == GLFW_KEY_R && action == GLFW_PRESS)
+    {
+        viewAzimuth = 0.f;
+        viewPolar = 0.f;
+        //cameraOffset = glm::vec3(0.0f, 0.0f, 0.0f); 
+        eye_center = glm::vec3(0, 0, 500.0f);
+        std::cout << "Reset." << std::endl;
+    }
 
-	if (key == GLFW_KEY_UP && (action == GLFW_REPEAT || action == GLFW_PRESS))
+    if (key == GLFW_KEY_ESCAPE && action == GLFW_PRESS)
+        glfwSetWindowShouldClose(window, GL_TRUE);
+}
+
+void processInput()
+{	
+	
+	static glm::vec3 cameraOffset(0.0f, 0.0f, 0.0f);
+	
+    glm::vec3 forward = glm::normalize(glm::vec3(
+        cos(viewPolar) * cos(viewAzimuth),
+        sin(viewPolar),
+        cos(viewPolar) * sin(viewAzimuth)
+    ));
+    glm::vec3 right = glm::normalize(glm::cross(forward, glm::vec3(0.0f, 1.0f, 0.0f)));
+    
+    glm::vec3 movement(0.0f);
+    
+    if (keys[GLFW_KEY_W])
+        movement += forward;
+    if (keys[GLFW_KEY_S])
+        movement -= forward;
+    if (keys[GLFW_KEY_A])
+        movement -= right;
+    if (keys[GLFW_KEY_D])
+        movement += right;
+    
+    if (glm::length(movement) > 0.0f)
+    {
+        movement = glm::normalize(movement) * cameraSpeed;
+        cameraOffset += movement;
+    }
+	
+	if (keys[GLFW_KEY_DOWN])
     {
         viewPolar -= rotationSpeed;
         if (viewPolar < -glm::half_pi<float>()) // Prevent flipping over
             viewPolar = -glm::half_pi<float>() + 0.01f;
     }
 
-    if (key == GLFW_KEY_DOWN && (action == GLFW_REPEAT || action == GLFW_PRESS))
+    if (keys[GLFW_KEY_UP])
     {
         viewPolar += rotationSpeed;
-        if (viewPolar > glm::half_pi<float>()) // Prevent flipping over
+        if (viewPolar > glm::half_pi<float>()) 
             viewPolar = glm::half_pi<float>() - 0.01f;
     }
 
-    if (key == GLFW_KEY_LEFT && (action == GLFW_REPEAT || action == GLFW_PRESS))
+    if (keys[GLFW_KEY_LEFT])
     {
         viewAzimuth -= rotationSpeed;
         if (viewAzimuth < 0.0f)
-            viewAzimuth += glm::two_pi<float>(); // Wrap around
+            viewAzimuth += glm::two_pi<float>(); 
     }
 
-    if (key == GLFW_KEY_RIGHT && (action == GLFW_REPEAT || action == GLFW_PRESS))
+    if (keys[GLFW_KEY_RIGHT])
     {
         viewAzimuth += rotationSpeed;
         if (viewAzimuth > glm::two_pi<float>())
-            viewAzimuth -= glm::two_pi<float>(); // Wrap around
+            viewAzimuth -= glm::two_pi<float>(); 
     }
 
+	 viewPolar = glm::clamp(viewPolar, -glm::half_pi<float>() + 0.01f, glm::half_pi<float>() - 0.01f);
+    if (viewAzimuth < 0.0f)
+        viewAzimuth += glm::two_pi<float>();
+    else if (viewAzimuth > glm::two_pi<float>())
+        viewAzimuth -= glm::two_pi<float>();
 
-	if (key == GLFW_KEY_Z && (action == GLFW_REPEAT || action == GLFW_PRESS))
-    {
-        // Zoom in by reducing viewDistance
-        viewDistance -= 5.0f;
-        if (viewDistance < 10.0f) viewDistance = 10.0f; // Prevent going too close
-
-        std::cout << "Zooming in: " << viewDistance << std::endl;
-    }
-
-    if (key == GLFW_KEY_X && (action == GLFW_REPEAT || action == GLFW_PRESS))
-    {
-        // Zoom out by increasing viewDistance
-        viewDistance += 5.0f;
-        if (viewDistance > 1000.0f) viewDistance = 1000.0f; // Prevent going too far
-
-        std::cout << "Zooming out: " << viewDistance << std::endl;
-    }
-
-
-	// WASD controls for camera movement
-
-	glm::vec3 forward = glm::normalize(glm::vec3(
+    // Update forward vector and lookat
+    forward = glm::normalize(glm::vec3(
         cos(viewPolar) * cos(viewAzimuth),
         sin(viewPolar),
         cos(viewPolar) * sin(viewAzimuth)
     ));
-	 glm::vec3 right = glm::normalize(glm::cross(forward, glm::vec3(0.0f, 1.0f, 0.0f))); // Assuming Y is up
+    
 
-	if (key == GLFW_KEY_W && (action == GLFW_REPEAT || action == GLFW_PRESS))
-    {
-        cameraOffset += forward * cameraSpeed;
-    }
-    if (key == GLFW_KEY_S && (action == GLFW_REPEAT || action == GLFW_PRESS))
-    {
-        cameraOffset -= forward * cameraSpeed;
-    }
-    if (key == GLFW_KEY_A && (action == GLFW_REPEAT || action == GLFW_PRESS))
-    {
-        cameraOffset -= right * cameraSpeed;
-    }
-    if (key == GLFW_KEY_D && (action == GLFW_REPEAT || action == GLFW_PRESS))
-    {
-        cameraOffset += right * cameraSpeed;
-    }
-
-	// Update camera position based on spherical coordinates and offset
-
-	eye_center = glm::vec3(cameraOffset);
-    lookat = eye_center + forward * viewDistance;
-
-
-	if (key == GLFW_KEY_ESCAPE && action == GLFW_PRESS)
-		glfwSetWindowShouldClose(window, GL_TRUE);
+    // Update camera position
+	cameraOffset = movement;
+    eye_center += cameraOffset;
+	eye_center.y = 10.0f;
+    //lookat = eye_center + forward * viewDistance;
+	lookat = eye_center + forward;
 }

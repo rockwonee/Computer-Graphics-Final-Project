@@ -66,6 +66,25 @@
         "map": "cpp",
         "ratio": "cpp",
         "iomanip": "cpp",
-        "valarray": "cpp"
+        "valarray": "cpp",
+        "charconv": "cpp",
+        "chrono": "cpp",
+        "filesystem": "cpp",
+        "format": "cpp",
+        "list": "cpp",
+        "locale": "cpp",
+        "mutex": "cpp",
+        "stop_token": "cpp",
+        "thread": "cpp",
+        "xhash": "cpp",
+        "xlocbuf": "cpp",
+        "xlocmes": "cpp",
+        "xlocmon": "cpp",
+        "xloctime": "cpp",
+        "xtree": "cpp",
+        "condition_variable": "cpp",
+        "semaphore": "cpp",
+        "span": "cpp",
+        "variant": "cpp"
     }
 }
